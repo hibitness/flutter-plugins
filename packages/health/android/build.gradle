@@ -46,6 +46,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation("com.google.android.gms:play-services-fitness:21.1.0")
     implementation("com.google.android.gms:play-services-auth:20.2.0")
-    // The new health connect api
+    // TODO: Checking this SDK & SDK in health package for Android 14
+    // https://developer.android.com/jetpack/androidx/releases/health-connect#1.1.0-alpha03
     implementation("androidx.health.connect:connect-client:1.0.0-alpha11")
 }

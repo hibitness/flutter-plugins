@@ -799,4 +799,25 @@ class HealthFactory {
       HealthWorkoutActivityType.OTHER,
     }.contains(type);
   }
+
+  /// Only for Android: Checking the Health Connect SDK APIs are unavailable.
+  Future<bool> isHealthConnectUnavailable() async {
+    if (!Platform.isAndroid) {
+      throw Exception('Function on this platform is not supported.');
+    }
+    final isAvailable =
+        await _channel.invokeMethod<bool>('checkIfHealthConnectAvailable');
+    return !(isAvailable ?? false);
+  }
+
+  /// Only for iOS: Checking the Health Data is unavailable.
+  /// (iPadOS 16 and earlier and on MacOS 13 and later)
+  Future<bool> isHealthDataUnavailable() async {
+    if (!Platform.isIOS) {
+      throw Exception('Function on this platform is not supported.');
+    }
+    final isAvailable =
+        await _channel.invokeMethod<bool>('checkIfHealthDataAvailable');
+    return !(isAvailable ?? false);
+  }
 }
