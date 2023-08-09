@@ -31,7 +31,11 @@ These are the available plugins in this repository.
 
 ## Issues
 
-Please check existing issues and file any new issues, bugs, or feature requests in the [flutter-plugin issue list](https://github.com/cph-cachet/flutter-plugins/issues).
+- Please check existing issues and file any new issues, bugs, or feature requests in the [flutter-plugin issue list](https://github.com/cph-cachet/flutter-plugins/issues).
+
+- From Android 14 we need to upgrade the version of Health Connect SDK for the [Health Package](https://github.com/hibitness/flutter-plugins/tree/master/packages/health). It is a prerequisite for Android 14 and apps will not be able to integrate with Health Connect on Android 14 without it.
+
+  Refer link: [Health Connect](https://developer.android.com/jetpack/androidx/releases/health-connect#1.1.0-alpha01)
 
 ## Contributing
 
