@@ -39,7 +39,7 @@ See this ticket why modified flutter-plugins:
 2. TODO After any new changes add ticket link here
 
 Note 2:  
-In case "flutter-plugins" does not promptly support Android 14, you must adopt the following library for Android to ensure compatibility with Android 14:
+In case "flutter-plugins" does not promptly support Android 14, you must adopt the following library for Android to ensure compatibility with Android 14:  
 For more information, please refer to this link: [Health Connect](https://developer.android.com/jetpack/androidx/releases/health-connect#1.1.0-alpha01).
 
 ## Contributing
