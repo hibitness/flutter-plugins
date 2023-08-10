@@ -32,8 +32,7 @@ These are the available plugins in this repository.
 ## Issues
 
 Note 1:  
-If you never need to modify flutter-plugins, you must directly utilize the <https://pub.dev/packages/health> package in your project without involving "flutter-plugins".
-
+If you never need to modify flutter-plugins, you must directly utilize the <https://pub.dev/packages/health> package in your project without involving "flutter-plugins".  
 See this ticket why modified flutter-plugins:  
 1. <https://ntvict.atlassian.net/browse/DEV-3323>.
 2. TODO After any new changes add ticket link here
