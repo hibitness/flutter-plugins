@@ -338,7 +338,6 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         channel?.setMethodCallHandler(this)
         context = flutterPluginBinding.applicationContext
         threadPoolExecutor = Executors.newFixedThreadPool(4)
-        checkAvailability()
         if (healthConnectAvailable) {
             healthConnectClient =
                 HealthConnectClient.getOrCreate(flutterPluginBinding.applicationContext)
@@ -1391,6 +1390,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
             "writeWorkoutData" -> writeWorkoutData(call, result)
             "writeBloodPressure" -> writeBloodPressure(call, result)
             "writeBloodOxygen" -> writeBloodOxygen(call, result)
+            "checkIfHealthConnectAvailable" -> checkIfHealthConnectAvailable(call, result)
             else -> result.notImplemented()
         }
     }
@@ -1421,14 +1421,14 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
     /**
      * HEALTH CONNECT BELOW
      */
-    var healthConnectAvailable = false
-    var healthConnectStatus = HealthConnectClient.SDK_UNAVAILABLE
+    private var healthConnectAvailable: Boolean = false
+        get() = HealthConnectClient.sdkStatus(context!!) == HealthConnectClient.SDK_AVAILABLE
 
-    fun checkAvailability() {
-        healthConnectStatus = HealthConnectClient.sdkStatus(context!!)
-        healthConnectAvailable = healthConnectStatus == HealthConnectClient.SDK_AVAILABLE
+
+    private fun checkIfHealthConnectAvailable(call: MethodCall, result: Result) {
+        result.success(healthConnectAvailable)
     }
-
+    
     fun useHealthConnectIfAvailable(call: MethodCall, result: Result) {
         useHealthConnectIfAvailable = true
         result.success(null)
