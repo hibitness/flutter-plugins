@@ -820,4 +820,14 @@ class HealthFactory {
         await _channel.invokeMethod<bool>('checkIfHealthDataAvailable');
     return !(isAvailable ?? false);
   }
+
+  /// Only for Android: Create if HealthConnectClient is not initialized
+  /// Return true if HealthConnectClient is initialized
+  Future<bool?> createHealthConnectClientIfNeeded() async {
+    if (!Platform.isAndroid) {
+      throw Exception('Function on this platform is not supported.');
+    }
+    return await _channel
+        .invokeMethod<bool>('createHealthConnectClientIfNeeded');
+  }
 }
