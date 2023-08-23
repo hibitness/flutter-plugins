@@ -1391,6 +1391,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
             "writeBloodPressure" -> writeBloodPressure(call, result)
             "writeBloodOxygen" -> writeBloodOxygen(call, result)
             "checkIfHealthConnectAvailable" -> checkIfHealthConnectAvailable(call, result)
+            "createHealthConnectClientIfNeeded" -> createHealthConnectClientIfNeeded(call, result)
             else -> result.notImplemented()
         }
     }
@@ -1427,6 +1428,17 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
 
     private fun checkIfHealthConnectAvailable(call: MethodCall, result: Result) {
         result.success(healthConnectAvailable)
+    }
+
+    // Creating HealthConnectClient when it is not initialized and Health Connect SDK APIs are unavailable 
+    // Case: Connect SDK APIs are unavailable, Health Connect app installed by user and open your app again
+    private fun createHealthConnectClientIfNeeded(call: MethodCall, result: Result) {
+        context?.let {
+            if (healthConnectAvailable && !this::healthConnectClient.isInitialized) {
+                healthConnectClient = HealthConnectClient.getOrCreate(it)
+            }
+        }
+        result.success(this::healthConnectClient.isInitialized)
     }
     
     fun useHealthConnectIfAvailable(call: MethodCall, result: Result) {
