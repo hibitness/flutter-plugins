@@ -1430,6 +1430,8 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         result.success(healthConnectAvailable)
     }
 
+    // Creating HealthConnectClient when it is not initialized and Health Connect SDK APIs are unavailable 
+    // Case: Connect SDK APIs are unavailable, Health Connect app installed by user and open your app again
     private fun createHealthConnectClientIfNeeded(call: MethodCall, result: Result) {
         context?.let {
             if (healthConnectAvailable && !this::healthConnectClient.isInitialized) {
