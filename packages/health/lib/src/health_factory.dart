@@ -513,6 +513,9 @@ class HealthFactory {
   /// Given an array of [HealthDataPoint]s, this method will return the array
   /// without any duplicates.
   static List<HealthDataPoint> removeDuplicates(List<HealthDataPoint> points) {
+    if (Platform.isIOS) {
+      return points;
+    }
     return LinkedHashSet.of(points).toList();
   }
 
