@@ -47,12 +47,14 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.records.metadata.DataOrigin
 import java.time.temporal.ChronoUnit
 
 const val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE = 1111
 const val HEALTH_CONNECT_RESULT_CODE = 16969
 const val CHANNEL_NAME = "flutter_health"
 const val MMOLL_2_MGDL = 18.0 // 1 mmoll= 18 mgdl
+const val GOOGLE_FIT_APP_ID = "com.google.android.apps.fitness"
 
 // The minimum android level that can use Health Connect
 const val MIN_SUPPORTED_SDK = Build.VERSION_CODES.O_MR1
@@ -78,6 +80,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
     private var STEPS = "STEPS"
     private var AGGREGATE_STEP_COUNT = "AGGREGATE_STEP_COUNT"
     private var ACTIVE_ENERGY_BURNED = "ACTIVE_ENERGY_BURNED"
+    private var TOTAL_CALORIES_BURNED = "TOTAL_CALORIES_BURNED"
     private var HEART_RATE = "HEART_RATE"
     private var BODY_TEMPERATURE = "BODY_TEMPERATURE"
     private var BLOOD_PRESSURE_SYSTOLIC = "BLOOD_PRESSURE_SYSTOLIC"
@@ -417,6 +420,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
             STEPS -> DataType.TYPE_STEP_COUNT_DELTA
             AGGREGATE_STEP_COUNT -> DataType.AGGREGATE_STEP_COUNT_DELTA
             ACTIVE_ENERGY_BURNED -> DataType.TYPE_CALORIES_EXPENDED
+            TOTAL_CALORIES_BURNED -> DataType.TYPE_CALORIES_EXPENDED
             HEART_RATE -> DataType.TYPE_HEART_RATE_BPM
             BODY_TEMPERATURE -> HealthDataTypes.TYPE_BODY_TEMPERATURE
             BLOOD_PRESSURE_SYSTOLIC -> HealthDataTypes.TYPE_BLOOD_PRESSURE
@@ -441,6 +445,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
             WEIGHT -> Field.FIELD_WEIGHT
             STEPS -> Field.FIELD_STEPS
             ACTIVE_ENERGY_BURNED -> Field.FIELD_CALORIES
+            TOTAL_CALORIES_BURNED -> Field.FIELD_CALORIES
             HEART_RATE -> Field.FIELD_BPM
             BODY_TEMPERATURE -> HealthFields.FIELD_BODY_TEMPERATURE
             BLOOD_PRESSURE_SYSTOLIC -> HealthFields.FIELD_BLOOD_PRESSURE_SYSTOLIC
@@ -1430,7 +1435,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         result.success(healthConnectAvailable)
     }
 
-    // Creating HealthConnectClient when it is not initialized and Health Connect SDK APIs are unavailable 
+    // Creating HealthConnectClient when it is not initialized and Health Connect SDK APIs are unavailable
     // Case: Connect SDK APIs are unavailable, Health Connect app installed by user and open your app again
     private fun createHealthConnectClientIfNeeded(call: MethodCall, result: Result) {
         context?.let {
@@ -1440,7 +1445,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         }
         result.success(this::healthConnectClient.isInitialized)
     }
-    
+
     fun useHealthConnectIfAvailable(call: MethodCall, result: Result) {
         useHealthConnectIfAvailable = true
         result.success(null)
@@ -1550,15 +1555,25 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         val healthConnectData = mutableListOf<Map<String, Any?>>()
         scope.launch {
             MapToHCType[dataType]?.let { classType ->
-                val request = ReadRecordsRequest(
-                    recordType = classType,
-                    timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
-                )
-                val response = healthConnectClient.readRecords(request)
+                var pageToken: String? = null
+                var records = mutableListOf<Record>()
+                do {
+                    val request = ReadRecordsRequest(
+                        recordType = classType,
+                        timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                        // Only use records from google fit
+                        dataOriginFilter = setOf(DataOrigin(GOOGLE_FIT_APP_ID)),
+                        pageToken = pageToken,
+                    )
+                    Log.d("HealthService ReadRecordsResponse pageToken", pageToken.toString())
+                    val response = healthConnectClient.readRecords(request)
+                    pageToken = response.pageToken
+                    records.addAll(response.records)
+                } while (!pageToken.isNullOrBlank())
 
                 // Workout needs distance and total calories burned too
                 if (dataType == WORKOUT) {
-                    for (rec in response.records) {
+                    for (rec in records) {
                         val record = rec as ExerciseSessionRecord
                         val distanceRequest = healthConnectClient.readRecords(
                             ReadRecordsRequest(
@@ -1620,7 +1635,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
                 }
                 */
                 else {
-                    for (rec in response.records) {
+                    for (rec in records) {
                         healthConnectData.addAll(convertRecord(rec, dataType))
                     }
                 }
@@ -1670,6 +1685,15 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
                 ),
             )
             is ActiveCaloriesBurnedRecord -> return listOf(
+                mapOf<String, Any>(
+                    "value" to record.energy.inKilocalories,
+                    "date_from" to record.startTime.toEpochMilli(),
+                    "date_to" to record.endTime.toEpochMilli(),
+                    "source_id" to "",
+                    "source_name" to metadata.dataOrigin.packageName,
+                ),
+            )
+            is TotalCaloriesBurnedRecord -> return listOf(
                 mapOf<String, Any>(
                     "value" to record.energy.inKilocalories,
                     "date_from" to record.startTime.toEpochMilli(),
@@ -1798,6 +1822,13 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
                 endZoneOffset = null,
             )
             ACTIVE_ENERGY_BURNED -> ActiveCaloriesBurnedRecord(
+                startTime = Instant.ofEpochMilli(startTime),
+                endTime = Instant.ofEpochMilli(endTime),
+                energy = Energy.kilocalories(value),
+                startZoneOffset = null,
+                endZoneOffset = null,
+            )
+            TOTAL_CALORIES_BURNED -> TotalCaloriesBurnedRecord(
                 startTime = Instant.ofEpochMilli(startTime),
                 endTime = Instant.ofEpochMilli(endTime),
                 energy = Energy.kilocalories(value),
@@ -2049,6 +2080,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         SLEEP_OUT_OF_BED to SleepStageRecord::class,
         SLEEP_SESSION to SleepSessionRecord::class,
         WORKOUT to ExerciseSessionRecord::class,
+        TOTAL_CALORIES_BURNED to TotalCaloriesBurnedRecord::class,
         // MOVE_MINUTES to TODO: Find alternative?
         // TODO: Implement remaining types
         // "ActiveCaloriesBurned" to ActiveCaloriesBurnedRecord::class,
@@ -2083,7 +2115,6 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         // "Speed" to SpeedRecord::class,
         // "StepsCadence" to StepsCadenceRecord::class,
         // "Steps" to StepsRecord::class,
-        // "TotalCaloriesBurned" to TotalCaloriesBurnedRecord::class,
         // "Vo2Max" to Vo2MaxRecord::class,
         // "Weight" to WeightRecord::class,
         // "WheelchairPushes" to WheelchairPushesRecord::class,
