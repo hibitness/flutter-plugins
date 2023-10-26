@@ -54,7 +54,6 @@ const val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE = 1111
 const val HEALTH_CONNECT_RESULT_CODE = 16969
 const val CHANNEL_NAME = "flutter_health"
 const val MMOLL_2_MGDL = 18.0 // 1 mmoll= 18 mgdl
-const val GOOGLE_FIT_APP_ID = "com.google.android.apps.fitness"
 
 // The minimum android level that can use Health Connect
 const val MIN_SUPPORTED_SDK = Build.VERSION_CODES.O_MR1
@@ -1552,6 +1551,10 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         val dataType = call.argument<String>("dataTypeKey")!!
         val startTime = Instant.ofEpochMilli(call.argument<Long>("startTime")!!)
         val endTime = Instant.ofEpochMilli(call.argument<Long>("endTime")!!)
+        val filterByResources = call.argument<ArrayList<String>?>("filterByResources")
+        val dataOriginFilter = filterByResources?.let {
+                filterByResources -> filterByResources.map { DataOrigin(it) }.toSet()
+        } ?: setOf()
         val healthConnectData = mutableListOf<Map<String, Any?>>()
         scope.launch {
             MapToHCType[dataType]?.let { classType ->
@@ -1561,8 +1564,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
                     val request = ReadRecordsRequest(
                         recordType = classType,
                         timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
-                        // Only use records from google fit
-                        dataOriginFilter = setOf(DataOrigin(GOOGLE_FIT_APP_ID)),
+                        dataOriginFilter = dataOriginFilter,
                         pageToken = pageToken,
                     )
                     Log.d("HealthService ReadRecordsResponse pageToken", pageToken.toString())
