@@ -405,11 +405,11 @@ class HealthFactory {
 
   /// Fetch a list of health data points based on [types].
   Future<List<HealthDataPoint>> getHealthDataFromTypes(
-      DateTime startTime, DateTime endTime, List<HealthDataType> types) async {
+      DateTime startTime, DateTime endTime, List<HealthDataType> types, [List<String>? filterByResources]) async {
     List<HealthDataPoint> dataPoints = [];
 
     for (var type in types) {
-      final result = await _prepareQuery(startTime, endTime, type);
+      final result = await _prepareQuery(startTime, endTime, type, filterByResources);
       dataPoints.addAll(result);
     }
 
@@ -423,7 +423,7 @@ class HealthFactory {
 
   /// Prepares a query, i.e. checks if the types are available, etc.
   Future<List<HealthDataPoint>> _prepareQuery(
-      DateTime startTime, DateTime endTime, HealthDataType dataType) async {
+      DateTime startTime, DateTime endTime, HealthDataType dataType, [List<String>? filterByResources]) async {
     // Ask for device ID only once
     _deviceId ??= _platformType == PlatformType.ANDROID
         ? (await _deviceInfo.androidInfo).id
@@ -440,17 +440,18 @@ class HealthFactory {
         _platformType == PlatformType.ANDROID) {
       return _computeAndroidBMI(startTime, endTime);
     }
-    return await _dataQuery(startTime, endTime, dataType);
+    return await _dataQuery(startTime, endTime, dataType, filterByResources);
   }
 
-  /// Fetches data points from Android/iOS native code.
+  /// Fetches data points from Android/iOS native code. (filterByResources only work for Android)
   Future<List<HealthDataPoint>> _dataQuery(
-      DateTime startTime, DateTime endTime, HealthDataType dataType) async {
+      DateTime startTime, DateTime endTime, HealthDataType dataType, [List<String>? filterByResources]) async {
     final args = <String, dynamic>{
       'dataTypeKey': dataType.name,
       'dataUnitKey': _dataTypeToUnit[dataType]!.name,
       'startTime': startTime.millisecondsSinceEpoch,
-      'endTime': endTime.millisecondsSinceEpoch
+      'endTime': endTime.millisecondsSinceEpoch,
+      'filterByResources': filterByResources
     };
     final fetchedDataPoints = await _channel.invokeMethod('getData', args);
 
@@ -824,9 +825,8 @@ class HealthFactory {
     return !(isAvailable ?? false);
   }
 
-  
   // Only for Android: Create if HealthConnectClient is not initialized and Health Connect SDK APIs are unavailable
-  // Return true when HealthConnectClient is initialized & false HealthConnectClient can't initialize  
+  // Return true when HealthConnectClient is initialized & false HealthConnectClient can't initialize
   Future<bool?> createHealthConnectClientIfNeeded() async {
     if (!Platform.isAndroid) {
       throw Exception('Function on this platform is not supported.');
