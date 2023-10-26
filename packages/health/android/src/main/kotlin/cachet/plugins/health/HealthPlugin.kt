@@ -1427,7 +1427,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
      * HEALTH CONNECT BELOW
      */
     private var healthConnectAvailable: Boolean = false
-        get() = HealthConnectClient.getSdkStatus(context!!) == HealthConnectClient.SDK_AVAILABLE
+        get() = HealthConnectClient.sdkStatus(context!!) == HealthConnectClient.SDK_AVAILABLE
 
 
     private fun checkIfHealthConnectAvailable(call: MethodCall, result: Result) {
