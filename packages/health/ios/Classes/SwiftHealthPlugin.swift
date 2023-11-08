@@ -173,6 +173,11 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     else if call.method.elementsEqual("delete") {
       try! delete(call: call, result: result)
     }
+      
+    /// Handle get total value of data type by day in interval
+    else if call.method.elementsEqual("getTotalDataTypeByDayInInterval") {
+      getTotalDataTypeByDayInInterval(call: call, result: result)
+    }
 
   }
 
@@ -719,7 +724,83 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     return dataType_
   }
 
-  func initializeTypes() {
+  func getTotalDataTypeByDayInInterval(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let arguments = call.arguments as? NSDictionary,
+        let dataTypeKey = (arguments["dataTypeKey"] as? String),
+        let dataUnitKey = (arguments["dataUnitKey"] as? String),
+        let startTime = (arguments["startTime"] as? NSNumber),
+        let endTime = (arguments["endTime"] as? NSNumber)
+    else {
+        result(
+            FlutterError(
+                code: "INVALID ARGUMENTS",
+                message: "Arguments is invalid.",
+                details: nil
+            )
+        )
+        return
+    }
+    
+    // Convert dates from milliseconds to Date()
+    let dateFrom = Date(timeIntervalSince1970: startTime.doubleValue / 1000)
+    let dateTo = Date(timeIntervalSince1970: endTime.doubleValue / 1000)
+    
+    guard let unit = unitDict[dataUnitKey],
+        let dataType = dataTypeLookUp(key: dataTypeKey) as? HKQuantityType
+    else {
+        result(
+            FlutterError(
+                code: "INVALID INPUT TYPE",
+                message: "Invalid data type or unit type.",
+                details: nil
+            )
+        )
+        return
+    }
+
+    let predicate = HKQuery.predicateForSamples(
+        withStart: dateFrom, end: dateTo, options: .strictStartDate
+    )
+
+    let daily = DateComponents(day: 1)
+    let query = HKStatisticsCollectionQuery(
+        quantityType: dataType,
+        quantitySamplePredicate: predicate,
+        options: .cumulativeSum,
+        anchorDate: dateFrom,
+        intervalComponents: daily
+    )
+
+    query.initialResultsHandler = { query, results, error in
+        guard let statsCollection = results else {
+            result(
+                FlutterError(
+                    code: "ERROR",
+                    message: "Error \(error?.localizedDescription ?? "null")",
+                    details: error?.localizedDescription
+                )
+            )
+            return
+        }
+        
+        var values = Array<NSDictionary>()
+        statsCollection.enumerateStatistics(from: dateFrom, to: dateTo) { statistics, stop in
+            if let quantity = statistics.sumQuantity() {
+                let value: NSDictionary = [
+                    "data_type": statistics.quantityType.identifier,
+                    "value": quantity.doubleValue(for: unit),
+                    "date_from": Int(statistics.startDate.timeIntervalSince1970 * 1000),
+                    "date_to": Int(statistics.endDate.timeIntervalSince1970 * 1000),
+                ]
+                values.append(value)
+            }
+        }
+        result(values)
+    }
+    HKHealthStore().execute(query)
+}
+
+func initializeTypes() {
     // Initialize units
     unitDict[GRAM] = HKUnit.gram()
     unitDict[KILOGRAM] = HKUnit.gramUnit(with: .kilo)
