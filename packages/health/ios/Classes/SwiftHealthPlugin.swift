@@ -798,9 +798,9 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         result(values)
     }
     HKHealthStore().execute(query)
-}
+  }
 
-func initializeTypes() {
+  func initializeTypes() {
     // Initialize units
     unitDict[GRAM] = HKUnit.gram()
     unitDict[KILOGRAM] = HKUnit.gramUnit(with: .kilo)
