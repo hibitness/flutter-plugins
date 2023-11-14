@@ -733,7 +733,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     else {
         result(
             FlutterError(
-                code: "INVALID ARGUMENTS",
+                code: "INVALID_ARGUMENTS",
                 message: "Arguments is invalid.",
                 details: nil
             )
@@ -750,7 +750,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     else {
         result(
             FlutterError(
-                code: "INVALID INPUT TYPE",
+                code: "INVALID_INPUT_TYPE",
                 message: "Invalid data type or unit type.",
                 details: nil
             )
@@ -765,7 +765,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
     let daily = DateComponents(day: 1)
     let query = HKStatisticsCollectionQuery(
         quantityType: dataType,
-        quantitySamplePredicate: predicate,
+        quantitySamplePredicate: nil,
         options: .cumulativeSum,
         anchorDate: dateFrom,
         intervalComponents: daily
