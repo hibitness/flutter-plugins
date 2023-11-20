@@ -42,12 +42,15 @@ import java.time.*
 import androidx.health.connect.client.units.*
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.aggregate.AggregateMetric
+import androidx.health.connect.client.impl.converters.datatype.toDataType
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.metadata.DataOrigin
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import java.time.temporal.ChronoUnit
 
 const val GOOGLE_FIT_PERMISSIONS_REQUEST_CODE = 1111
@@ -1396,6 +1399,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
             "writeBloodOxygen" -> writeBloodOxygen(call, result)
             "checkIfHealthConnectAvailable" -> checkIfHealthConnectAvailable(call, result)
             "createHealthConnectClientIfNeeded" -> createHealthConnectClientIfNeeded(call, result)
+            "getTotalDataTypeByDayInInterval" -> getHCTotalDataTypeByDayInInterval(call, result)
             else -> result.notImplemented()
         }
     }
@@ -1545,6 +1549,77 @@ class HealthPlugin(private var channel: MethodChannel? = null) :
         val contract = PermissionController.createRequestPermissionResultContract()
         val intent = contract.createIntent(activity!!, permList.toSet())
         activity!!.startActivityForResult(intent, HEALTH_CONNECT_RESULT_CODE)
+    }
+
+
+    private fun getHCTotalDataTypeByDayInInterval(call: MethodCall, result: Result) {
+        val dataType = call.argument<String>("dataTypeKey")!!
+        val startTime = Instant.ofEpochMilli(call.argument<Long>("startTime")!!)
+        val endTime = Instant.ofEpochMilli(call.argument<Long>("endTime")!!)
+        val filterByResources = call.argument<ArrayList<String>?>("filterByResources")
+        val dataOriginFilter = filterByResources?.let { filterByResources ->
+            filterByResources.map { DataOrigin(it) }.toSet()
+        } ?: setOf()
+        val healthConnectData = mutableListOf<Map<String, Any?>>()
+        var metrics: Set<AggregateMetric<*>> = setOf()
+        when (dataType) {
+            STEPS -> {
+                 metrics = setOf(StepsRecord.COUNT_TOTAL)
+            }
+            TOTAL_CALORIES_BURNED -> {
+                metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+            }
+            DISTANCE_DELTA -> {
+                metrics = setOf(DistanceRecord.DISTANCE_TOTAL)
+            }
+        }
+
+        if(metrics.isEmpty()) {
+            result.error(
+                "INVALID_DATA_TYPE",
+                "Data type ($dataType) is not supported!",
+                ""
+            )
+            return
+        }
+
+        scope.launch {
+            val response = healthConnectClient.aggregateGroupByDuration(
+                AggregateGroupByDurationRequest(
+                    metrics = metrics,
+                    timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                    timeRangeSlicer = Duration.ofDays(1),
+                    dataOriginFilter = dataOriginFilter
+                )
+            )
+            for (durationResult in response) {
+                val sourceNames = durationResult.result.dataOrigins.map { it.packageName }.toString()
+                var value: Any? = 0
+                when (dataType) {
+                    STEPS -> {
+                        value = durationResult.result[StepsRecord.COUNT_TOTAL]
+                    }
+                    TOTAL_CALORIES_BURNED -> {
+                        value = durationResult.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
+                    }
+                    DISTANCE_DELTA -> {
+                        value = durationResult.result[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                    }
+                }
+                value?.let {
+                    healthConnectData.add(
+                        mapOf<String, Any>(
+                            "value" to it,
+                            "date_from" to durationResult.startTime.toEpochMilli(),
+                            "date_to" to durationResult.endTime.toEpochMilli(),
+                            "source_id" to "",
+                            "source_name" to sourceNames,
+                        )
+                    )
+                }
+            }
+            Handler(context!!.mainLooper).run { result.success(healthConnectData) }
+        }
     }
 
     fun getHCData(call: MethodCall, result: Result) {
