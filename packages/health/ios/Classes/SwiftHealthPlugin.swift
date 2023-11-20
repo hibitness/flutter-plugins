@@ -758,10 +758,6 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         return
     }
 
-    let predicate = HKQuery.predicateForSamples(
-        withStart: dateFrom, end: dateTo, options: .strictStartDate
-    )
-
     let daily = DateComponents(day: 1)
     let query = HKStatisticsCollectionQuery(
         quantityType: dataType,
